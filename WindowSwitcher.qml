@@ -192,8 +192,9 @@ Item {
     root.cancel()
     if (!/^0x[0-9a-f]+$/i.test(address)) return
     Quickshell.execDetached([
-      "hyprctl", "dispatch",
-      'hl.dsp.focus({ window = "address:' + address + '" })'
+      "hyprctl", "eval",
+      'hl.dispatch(hl.dsp.focus({ window = "address:' + address + '" }))\n'
+        + 'hl.dispatch(hl.dsp.window.bring_to_top())'
     ])
   }
 
