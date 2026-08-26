@@ -29,11 +29,11 @@ Item {
   readonly property color foregroundColor: Color.menu.text
   readonly property color borderColor: Color.menu.border
   readonly property color scrimColor: Color.menu.scrim
-  readonly property color selectedColor: Color.menu.selectedBackground
-  readonly property color selectedTextColor: Color.menu.selectedText
+  readonly property color selectedColor: Util.alpha(Color.menu.selectedBackground, 0.18)
+  readonly property color selectedTextColor: Color.menu.text
   readonly property color selectedBorderColor: Color.menu.selectedBorder
-  readonly property int cardWidth: Math.max(Style.space(112), 112)
-  readonly property int cardHeight: Math.max(Style.space(138), 138)
+  readonly property int cardWidth: Math.max(Style.space(132), 132)
+  readonly property int cardHeight: Math.max(Style.space(156), 156)
   readonly property int cardSpacing: Math.max(Style.spacing.lg, 12)
   readonly property int panelPadding: Math.max(Style.spacing.xl, 20)
 
@@ -80,7 +80,7 @@ Item {
       : String(client.initialClass || client.class || "application-x-executable")
     var decorated = ({})
     for (var key in client) decorated[key] = client[key]
-    decorated.appName = appName || String(client.class || client.initialClass || "Application")
+    decorated.appName = appName || WindowModel.classLabel(client.class || client.initialClass)
     decorated.displayTitle = WindowModel.shortenedTitle(client.title || decorated.appName, 96)
     decorated.iconSource = root.appLibrary
       ? root.appLibrary.iconSource(iconName)
@@ -352,11 +352,12 @@ Item {
 
               Item {
                 width: parent.width
-                height: Math.max(Style.space(76), 76)
+                height: Math.max(Style.space(94), 94)
 
                 Image {
+                  id: appIcon
                   anchors.centerIn: parent
-                  width: Math.max(Style.space(68), 68)
+                  width: Math.max(Style.space(84), 84)
                   height: width
                   source: String(windowCard.modelData.iconSource || "")
                   fillMode: Image.PreserveAspectFit
@@ -364,6 +365,15 @@ Item {
                   sourceSize.height: height * Screen.devicePixelRatio
                   asynchronous: true
                   smooth: true
+                }
+
+                Text {
+                  anchors.centerIn: parent
+                  visible: appIcon.status !== Image.Ready
+                  text: "󰍲"
+                  color: windowCard.selected ? root.selectedTextColor : root.foregroundColor
+                  font.family: Style.font.menuFamily
+                  font.pixelSize: Math.max(Style.font.iconLarge, 42)
                 }
               }
 
@@ -394,9 +404,10 @@ Item {
 
             MouseArea {
               anchors.fill: parent
-              hoverEnabled: true
-              onEntered: root.selectedIndex = windowCard.index
-              onClicked: root.commit()
+              onClicked: {
+                root.selectedIndex = windowCard.index
+                root.commit()
+              }
             }
           }
         }

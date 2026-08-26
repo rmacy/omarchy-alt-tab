@@ -32,6 +32,12 @@ test("starts on the next MRU window and wraps in both directions", () => {
   assert.equal(model.nextIndex(0, -1, 4), 3)
 })
 
+test("turns application classes into readable fallback labels", () => {
+  assert.equal(model.classLabel("com.mitchellh.ghostty"), "Ghostty")
+  assert.equal(model.classLabel("org.example.my_app"), "My App")
+  assert.equal(model.classLabel(""), "Application")
+})
+
 test("normalizes titles without breaking short labels", () => {
   assert.equal(model.shortenedTitle("  A   useful title  ", 20), "A useful title")
   assert.equal(model.shortenedTitle("A very long window title", 10), "A very lo…")
