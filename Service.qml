@@ -44,22 +44,22 @@ Item {
       'hl.unbind("ALT_R")',
       'hl.define_submap(submap, function()',
       '  hl.bind("ALT + TAB", function() shell_call("advance", "1") end,',
-      '    { description = "Window switcher: next" })',
+      '    { description = "Window switcher: next", dont_inhibit = true })',
       '  hl.bind("ALT + SHIFT + TAB", function() shell_call("advance", "-1") end,',
-      '    { description = "Window switcher: previous" })',
+      '    { description = "Window switcher: previous", dont_inhibit = true })',
       '  hl.bind("ESCAPE", function() reset_and_call("cancel") end,',
-      '    { description = "Window switcher: cancel" })',
+      '    { description = "Window switcher: cancel", dont_inhibit = true })',
       '  hl.bind("RETURN", function() reset_and_call("commit") end,',
-      '    { description = "Window switcher: select" })',
+      '    { description = "Window switcher: select", dont_inhibit = true })',
       'end)',
       'hl.bind("ALT + TAB", function() begin(1) end,',
-      '  { description = "Window switcher" })',
+      '  { description = "Window switcher", dont_inhibit = true })',
       'hl.bind("ALT + SHIFT + TAB", function() begin(-1) end,',
-      '  { description = "Window switcher (reverse)" })',
+      '  { description = "Window switcher (reverse)", dont_inhibit = true })',
       'hl.bind("ALT_L", function() reset_and_call("commit") end,',
-      '  { release = true, non_consuming = true, submap_universal = true, ignore_mods = true })',
+      '  { release = true, non_consuming = true, submap_universal = true, ignore_mods = true, dont_inhibit = true })',
       'hl.bind("ALT_R", function() reset_and_call("commit") end,',
-      '  { release = true, non_consuming = true, submap_universal = true, ignore_mods = true })'
+      '  { release = true, non_consuming = true, submap_universal = true, ignore_mods = true, dont_inhibit = true })'
     ].join("\n")
   }
 
