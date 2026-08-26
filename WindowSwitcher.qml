@@ -31,19 +31,18 @@ Item {
   readonly property color borderColor: Color.menu.border
   readonly property color scrimColor: Color.menu.scrim
   readonly property color surfaceTopColor: Util.alpha(
-    backgroundColor, Math.min(backgroundColor.a, 0.94))
+    backgroundColor, Math.min(0.97, Math.max(backgroundColor.a, 0.92)))
   readonly property color surfaceBottomColor: Util.alpha(
-    backgroundColor, Math.min(backgroundColor.a, 0.84))
+    backgroundColor, Math.min(0.95, Math.max(backgroundColor.a, 0.88)))
   readonly property color surfaceBorderColor: Util.alpha(
-    borderColor, Math.min(borderColor.a, 0.58))
-  readonly property color surfaceInnerBorderColor: Util.alpha(foregroundColor, 0.10)
-  readonly property color panelShadowColor: Util.alpha(Color.background, 0.44)
-  readonly property color selectedColor: Util.alpha(
-    Color.menu.selectedBackground, Math.max(Color.menu.selectedBackground.a, 0.14))
-  readonly property color selectedTextColor: Color.menu.selectedText
-  readonly property color selectedSecondaryTextColor: Util.alpha(selectedTextColor, 0.72)
-  readonly property color selectedBorderColor: Color.menu.selectedBorder.a > 0
-    ? Color.menu.selectedBorder : Util.alpha(selectedTextColor, 0.48)
+    borderColor, Math.max(borderColor.a, 0.62))
+  readonly property color surfaceInnerBorderColor: Util.alpha(foregroundColor, 0.12)
+  readonly property color panelShadowColor: Util.alpha(Color.background, 0.58)
+  readonly property color selectedColor: Util.alpha(Color.menu.selectedBackground, 0.18)
+  readonly property color selectedTextColor: foregroundColor
+  readonly property color selectedSecondaryTextColor: Util.alpha(foregroundColor, 0.68)
+  readonly property color selectedBorderColor: Util.alpha(
+    Color.menu.selectedBorder.a > 0 ? Color.menu.selectedBorder : foregroundColor, 0.78)
   readonly property color secondaryTextColor: Util.alpha(foregroundColor, 0.62)
   readonly property color idleCardColor: Style.normalFillFor(foregroundColor, selectedTextColor)
   readonly property color hoverCardColor: Style.hoverFillFor(foregroundColor, selectedTextColor)
@@ -84,7 +83,7 @@ Item {
     var bestScore = 100
 
     for (var i = 0; i < entries.length; i++) {
-      var entry = entries[i]
+      var entry = entries[i] && entries[i].entry ? entries[i].entry : entries[i]
       var entryId = String(entry.id || "").replace(/\.desktop$/i, "").toLowerCase()
       var entryName = String(root.appLibrary.entryName(entry) || "").toLowerCase()
       for (var j = 0; j < keys.length; j++) {
