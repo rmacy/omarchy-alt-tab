@@ -2,7 +2,7 @@
 
 var MAX_CLIENTS = 256
 var SAFE_ICON_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
-var STABLE_ID_PATTERN = /^[0-9]+$/
+var STABLE_ID_PATTERN = /^[0-9A-Fa-f]+$/
 
 function valuesOf(value) {
   if (Array.isArray(value)) return value

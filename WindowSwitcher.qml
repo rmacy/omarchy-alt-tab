@@ -269,7 +269,7 @@ Item {
     var live = WindowModel.findSwitchableByStableId(Hyprland.toplevels.values,
       selectedStableId, root.targetMonitorId, root.targetWorkspaceId)
     root.cancel()
-    if (!live || !/^[0-9]+$/.test(selectedStableId)) return
+    if (!live || !/^[0-9A-Fa-f]+$/.test(selectedStableId)) return
     Quickshell.execDetached([
       "hyprctl", "eval",
       'hl.dispatch(hl.dsp.focus({ window = "stableid:' + selectedStableId + '" }))\n'
