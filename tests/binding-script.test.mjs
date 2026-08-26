@@ -127,7 +127,8 @@ test("every keybind callback is owner-guarded before acting", () => {
   assert.match(apply, /local function push_advance\(delta\)\s+if not live\(\) then/)
   assert.match(apply, /local function flush_delta\(\)\s+flush_scheduled = false\s+if not live\(\) then/)
   assert.match(apply, /watch_alt = function\(\)\s+if not live\(\) then/)
-  assert.match(apply, /hl\.timer\(function\(\)\s+if owned\(\) then shell_call\(method, "ignored"\) end/)
+  assert.match(apply, /local argument = apply_pending and tostring\(final_delta\) or "ignored"/)
+  assert.match(apply, /hl\.timer\(function\(\)\s+if owned\(\) then shell_call\(method, argument\) end/)
 })
 
 test("reapply retires exact tracked handles before creating new binds", () => {

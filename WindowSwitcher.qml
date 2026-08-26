@@ -250,12 +250,16 @@ Item {
     if (root.selectedIndex >= 0) strip.positionViewAtIndex(root.selectedIndex, ListView.Contain)
   }
 
-  function commit() {
+  function commit(argument) {
     if (!root.opened) return
+    var numeric = Number(argument)
+    var finalDelta = isFinite(numeric) ? Math.trunc(numeric) : 0
     if (root.loading) {
+      root.queuedDelta += finalDelta
       root.commitWhenReady = true
       return
     }
+    if (finalDelta !== 0) root.select(finalDelta)
     if (root.selectedIndex < 0 || root.selectedIndex >= root.clients.length) {
       root.cancel()
       return

@@ -56,7 +56,9 @@ omarchy-shell shell call "$plugin_id" cancel smoke-start >/dev/null
 hyprctl dispatch 'hl.dsp.submap("reset")' >/dev/null
 
 run_probe forward
-forward=$(wait_for_open)
+wait_for_open >/dev/null
+sleep 0.4
+forward=$(status_json)
 selected=$(jq -r '.selectedStableId' <<<"$forward")
 [[ $selected =~ ^[0-9]+$ ]] || { echo "live smoke: no stable selection" >&2; exit 1; }
 finish_probe
@@ -65,7 +67,9 @@ sleep 0.2
 [[ $(hyprctl -j activewindow | jq -r '.stableId') == "$selected" ]] || { echo "live smoke: forward did not focus selection" >&2; exit 1; }
 
 run_probe reverse
-reverse=$(wait_for_open)
+wait_for_open >/dev/null
+sleep 0.4
+reverse=$(status_json)
 reverse_selected=$(jq -r '.selectedStableId' <<<"$reverse")
 [[ $reverse_selected =~ ^[0-9]+$ ]] || { echo "live smoke: reverse has no selection" >&2; exit 1; }
 finish_probe
