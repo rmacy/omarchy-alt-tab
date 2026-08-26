@@ -135,7 +135,6 @@ Item {
     root.opened = true
     clientsProcess.command = ["hyprctl", "-j", "clients"]
     clientsProcess.running = true
-    Qt.callLater(function() { keyScope.forceActiveFocus() })
     return true
   }
 
@@ -215,7 +214,6 @@ Item {
       return
     }
     Qt.callLater(function() {
-      keyScope.forceActiveFocus()
       strip.positionViewAtIndex(root.selectedIndex, ListView.Contain)
       if (root.commitWhenReady) root.commit()
     })
@@ -258,7 +256,7 @@ Item {
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.namespace: "bitr0t-window-switcher"
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
     FocusScope {
       id: keyScope
