@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  sleep(1);
+  sleep(2);
   if (set_key(fd, KEY_LEFTALT, 1)) goto send_error;
   if (!strcmp(mode, "reverse") && set_key(fd, KEY_LEFTSHIFT, 1)) goto send_error;
   if (tap_key(fd, KEY_TAB)) goto send_error;

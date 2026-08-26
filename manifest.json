@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "bitr0t.window-switcher",
   "name": "Window Switcher",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "author": "Ryan Macy",
   "description": "Themed macOS-style Alt-Tab for the active workspace on the focused monitor.",
   "kinds": [

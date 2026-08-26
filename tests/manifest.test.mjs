@@ -5,10 +5,10 @@ import { test } from "node:test"
 const root = new URL("../", import.meta.url)
 const manifest = JSON.parse(readFileSync(new URL("manifest.json", root), "utf8"))
 
-test("manifest publishes the scoped v1.4.0 service and overlay", () => {
+test("manifest publishes the scoped v1.4.1 service and overlay", () => {
   assert.equal(manifest.schemaVersion, 1)
   assert.equal(manifest.id, "bitr0t.window-switcher")
-  assert.equal(manifest.version, "1.4.0")
+  assert.equal(manifest.version, "1.4.1")
   assert.deepEqual(manifest.kinds, ["overlay", "service"])
   assert.equal(manifest.keepLoaded, true)
   assert.match(manifest.description, /active workspace/i)

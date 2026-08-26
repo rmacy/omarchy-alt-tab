@@ -96,7 +96,13 @@ Repository tasks use [mise](https://mise.jdx.dev/):
 mise run check
 ```
 
-`check` runs the pure model and generated-Lua tests, QML diagnostics, the production Quickshell construction smoke, and manifest validation. A separate live Hyprland smoke exercises real press/repeat/reverse/release, focus-and-raise, reload recovery, theme mutation, and zero/single/many states.
+`check` runs the pure model and generated-Lua tests, strict QML diagnostics, an isolated invisible Quickshell construction smoke, and manifest validation. It never changes the active desktop.
+
+The separate live Hyprland smoke is **destructive to the active interaction session**: it temporarily moves focus and the pointer, changes workspaces, injects physical key events, and reloads Hyprland before restoring state. Do not run it while using the desktop. It requires explicit opt-in:
+
+```bash
+WINDOW_SWITCHER_LIVE_TEST=1 mise run test-live
+```
 
 ## License
 
