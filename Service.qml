@@ -63,6 +63,10 @@ Item {
       'hl.bind("ALT_L", function() reset_and_call("commit") end,',
       '  { release = true, non_consuming = true, submap_universal = true, ignore_mods = true, dont_inhibit = true })',
       'hl.bind("ALT_R", function() reset_and_call("commit") end,',
+      '  { release = true, non_consuming = true, submap_universal = true, ignore_mods = true, dont_inhibit = true })',
+      'hl.bind("ALT + ALT_L", function() reset_and_call("commit") end,',
+      '  { release = true, non_consuming = true, submap_universal = true, ignore_mods = true, dont_inhibit = true })',
+      'hl.bind("ALT + ALT_R", function() reset_and_call("commit") end,',
       '  { release = true, non_consuming = true, submap_universal = true, ignore_mods = true, dont_inhibit = true })'
     ].join("\n")
   }
