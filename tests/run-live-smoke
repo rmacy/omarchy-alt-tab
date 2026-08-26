@@ -32,7 +32,7 @@ trap cleanup EXIT INT TERM
 cc -O2 -Wall -Wextra -o "$tmp/live-input" "$plugin_dir/tests/live-input.c"
 
 status_json() {
-  omarchy-shell shell call "$plugin_id" status '' | sed -n '/^{/p'
+  omarchy-shell shell call "$plugin_id" status '' | sed -n '/^{/p' | tail -n 1
 }
 wait_for_open() {
   local status
@@ -47,6 +47,22 @@ wait_for_open() {
   echo "live smoke: switcher did not open" >&2
   return 1
 }
+wait_for_closed() {
+  local status
+  for _ in $(seq 1 40); do
+    status=$(status_json 2>/dev/null || true)
+    if [[ -n $status ]] && [[ $(jq -r '.open' <<<"$status") == false ]]; then
+      return 0
+    fi
+    sleep 0.1
+  done
+  echo "live smoke: switcher did not close; submap=$(hyprctl submap | tr -d '\n') status=$(status_json)" >&2
+  return 1
+}
+focus_anchor() {
+  hyprctl dispatch "hl.dsp.focus({ window = \"stableid:$anchor_stable\" })" >/dev/null
+  sleep 0.15
+}
 run_probe() {
   "$tmp/live-input" "$1" &
   probe_pid=$!
@@ -58,14 +74,25 @@ finish_probe() {
 
 test_workspace=$(hyprctl -j clients | jq -r --argjson monitor "$focused_monitor" '
   ([.[] | select(.monitor == $monitor and .mapped and .acceptsInput and (.hidden | not))]
-    | group_by(.workspace.id) | map(select(length >= 2)) | max_by(length)
-    | .[0].workspace.id) // empty')
+    | group_by(.workspace.id)
+    | map(select(length >= 2 and any(.[]; .class == "com.mitchellh.ghostty")))
+    | max_by(length) | .[0].workspace.id) // empty')
 [[ $test_workspace =~ ^-?[0-9]+$ ]] || {
   echo "live smoke: need two switchable windows on one workspace" >&2
   exit 1
 }
 hyprctl dispatch "hl.dsp.focus({ workspace = \"$test_workspace\" })" >/dev/null
 sleep 0.2
+anchor_stable=$(hyprctl -j clients | jq -r --argjson workspace "$test_workspace" \
+  --argjson monitor "$focused_monitor" '
+  [.[] | select(.workspace.id == $workspace and .monitor == $monitor
+    and .mapped and .acceptsInput and (.hidden | not)
+    and (.class == "com.mitchellh.ghostty"))][0].stableId // empty')
+[[ $anchor_stable =~ ^[0-9A-Fa-f]+$ ]] || {
+  echo "live smoke: need a Ghostty anchor on the test workspace" >&2
+  exit 1
+}
+focus_anchor
 
 omarchy-shell shell call "$plugin_id" cancel smoke-start >/dev/null
 hyprctl dispatch 'hl.dsp.submap("reset")' >/dev/null
@@ -74,31 +101,35 @@ run_probe forward
 wait_for_open >/dev/null
 sleep 0.4
 forward=$(status_json)
-echo "live smoke: forward status $forward"
 selected=$(jq -r '.selectedStableId' <<<"$forward")
 [[ $selected =~ ^[0-9A-Fa-f]+$ ]] || { echo "live smoke: no stable selection" >&2; exit 1; }
 finish_probe
 sleep 0.2
 [[ $(hyprctl submap | tr -d '\n') == default ]] || { echo "live smoke: forward left stale submap" >&2; exit 1; }
 [[ $(hyprctl -j activewindow | jq -r '.stableId') == "$selected" ]] || { echo "live smoke: forward did not focus selection" >&2; exit 1; }
+wait_for_closed
+focus_anchor
 
 run_probe reverse
 wait_for_open >/dev/null
 sleep 0.4
 reverse=$(status_json)
-echo "live smoke: reverse status $reverse"
 reverse_selected=$(jq -r '.selectedStableId' <<<"$reverse")
 [[ $reverse_selected =~ ^[0-9A-Fa-f]+$ ]] || { echo "live smoke: reverse has no selection" >&2; exit 1; }
 finish_probe
 sleep 0.2
 [[ $(hyprctl -j activewindow | jq -r '.stableId') == "$reverse_selected" ]] || { echo "live smoke: reverse did not focus selection" >&2; exit 1; }
+wait_for_closed
+focus_anchor
 
-before_escape=$(hyprctl -j activewindow | jq -r '.stableId')
+before_escape=$anchor_stable
 run_probe escape
 finish_probe
 sleep 0.2
 [[ $(hyprctl submap | tr -d '\n') == default ]] || { echo "live smoke: Escape left stale submap" >&2; exit 1; }
 [[ $(hyprctl -j activewindow | jq -r '.stableId') == "$before_escape" ]] || { echo "live smoke: Escape changed focus" >&2; exit 1; }
+wait_for_closed
+focus_anchor
 
 run_probe reload
 wait_for_open >/dev/null
