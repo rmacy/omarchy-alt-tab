@@ -23,6 +23,7 @@ Item {
   property int selectedIndex: -1
   property int targetMonitorId: -1
   property string targetMonitorName: ""
+  property int targetWorkspaceId: -1
   property var clients: []
 
   readonly property color transparentColor: Util.alpha(Color.background, 0)
@@ -31,41 +32,41 @@ Item {
   readonly property color borderColor: Color.menu.border
   readonly property color scrimColor: Color.menu.scrim
   readonly property color surfaceTopColor: Util.alpha(
-    backgroundColor, Math.min(0.97, Math.max(backgroundColor.a, 0.92)))
+    backgroundColor, Math.min(0.82, Math.max(backgroundColor.a, 0.74)))
   readonly property color surfaceBottomColor: Util.alpha(
-    backgroundColor, Math.min(0.95, Math.max(backgroundColor.a, 0.88)))
+    backgroundColor, Math.min(0.72, Math.max(backgroundColor.a, 0.64)))
   readonly property color surfaceBorderColor: Util.alpha(
-    borderColor, Math.max(borderColor.a, 0.62))
-  readonly property color surfaceInnerBorderColor: Util.alpha(foregroundColor, 0.12)
-  readonly property color panelShadowColor: Util.alpha(Color.background, 0.58)
-  readonly property color selectedColor: Util.alpha(Color.menu.selectedBackground, 0.18)
+    borderColor, Math.max(borderColor.a, 0.55))
+  readonly property color surfaceInnerBorderColor: Util.alpha(foregroundColor, 0.10)
+  readonly property color panelShadowColor: Util.alpha(Color.background, 0.52)
+  readonly property color selectedColor: Util.alpha(Color.menu.selectedBackground, 0.20)
   readonly property color selectedTextColor: foregroundColor
   readonly property color selectedSecondaryTextColor: Util.alpha(foregroundColor, 0.68)
   readonly property color selectedBorderColor: Util.alpha(
-    Color.menu.selectedBorder.a > 0 ? Color.menu.selectedBorder : foregroundColor, 0.78)
+    Color.menu.selectedBorder.a > 0 ? Color.menu.selectedBorder : foregroundColor, 0.85)
   readonly property color secondaryTextColor: Util.alpha(foregroundColor, 0.62)
   readonly property color idleCardColor: Style.normalFillFor(foregroundColor, selectedTextColor)
   readonly property color hoverCardColor: Style.hoverFillFor(foregroundColor, selectedTextColor)
   readonly property color idleCardBorderColor: Style.normalBorderFor(foregroundColor, selectedTextColor)
   readonly property color hoverCardBorderColor: Style.hoverBorderFor(foregroundColor, selectedTextColor)
   readonly property color iconShadowColor: Util.alpha(Color.background, 0.48)
-  readonly property real displayScale: Math.max(1, Math.min(1.8,
+  readonly property real displayScale: Math.max(1, Math.min(1.6,
     panel.height / Math.max(1, Style.space(1080))))
-  readonly property int cardWidth: Math.round(Style.space(180) * displayScale)
-  readonly property int cardHeight: Math.round(Style.space(224) * displayScale)
-  readonly property int cardSpacing: Math.round(Style.space(12) * displayScale)
-  readonly property int panelPadding: Math.round(Style.space(22) * displayScale)
-  readonly property int cardPadding: Math.round(Style.space(16) * displayScale)
-  readonly property int iconSize: Math.round(Style.space(104) * displayScale)
-  readonly property int iconAreaHeight: Math.round(Style.space(132) * displayScale)
-  readonly property int panelRadius: Math.max(Style.cornerRadius, Style.space(22))
-  readonly property int cardRadius: Math.max(Style.cornerRadius, Style.space(16))
+  readonly property int cardWidth: Math.round(Style.space(150) * displayScale)
+  readonly property int cardHeight: Math.round(Style.space(188) * displayScale)
+  readonly property int cardSpacing: Math.round(Style.space(10) * displayScale)
+  readonly property int panelPadding: Math.round(Style.space(16) * displayScale)
+  readonly property int cardPadding: Math.round(Style.space(12) * displayScale)
+  readonly property int iconSize: Math.round(Style.space(84) * displayScale)
+  readonly property int iconAreaHeight: Math.round(Style.space(108) * displayScale)
+  readonly property int panelRadius: Math.max(Style.cornerRadius, Style.space(18))
+  readonly property int cardRadius: Math.max(Style.cornerRadius, Style.space(13))
   readonly property int screenMargin: Math.max(
-    Style.space(48), Math.round(panel.width * 0.05))
-  readonly property int maxVisibleCards: 7
-  readonly property int quickMotionDuration: 140
-  readonly property int selectionMotionDuration: 190
-  readonly property int entranceMotionDuration: 220
+    Style.space(40), Math.round(panel.width * 0.04))
+  readonly property int maxVisibleCards: 9
+  readonly property int quickMotionDuration: 130
+  readonly property int selectionMotionDuration: 170
+  readonly property int entranceMotionDuration: 200
 
   function monitorScreen(name) {
     var screens = Quickshell.screens || []
@@ -120,6 +121,7 @@ Item {
 
   function showForFocusedMonitor(direction) {
     var monitor = Hyprland.focusedMonitor
+    var workspace = Hyprland.focusedWorkspace
     if (!monitor) return false
 
     root.requestSerial += 1
@@ -129,6 +131,7 @@ Item {
     root.commitWhenReady = false
     root.targetMonitorId = Number(monitor.id)
     root.targetMonitorName = String(monitor.name || "")
+    root.targetWorkspaceId = workspace ? Number(workspace.id) : -1
     root.clients = []
     root.selectedIndex = -1
     root.loading = true
@@ -201,7 +204,8 @@ Item {
     if (exitCode === 0) {
       try { parsed = JSON.parse(String(text || "[]")) } catch (_error) { parsed = [] }
     }
-    var filtered = WindowModel.switchableClients(parsed, root.targetMonitorId)
+    var filtered = WindowModel.switchableClients(
+      parsed, root.targetMonitorId, root.targetWorkspaceId)
     var decorated = []
     for (var i = 0; i < filtered.length; i++) decorated.push(root.decorate(filtered[i]))
     root.clients = decorated
@@ -224,6 +228,7 @@ Item {
       open: root.opened,
       loading: root.loading,
       monitor: root.targetMonitorName,
+      workspace: root.targetWorkspaceId,
       count: root.clients.length,
       selectedIndex: root.selectedIndex,
       selectedAddress: root.selectedIndex >= 0 && root.selectedIndex < root.clients.length
@@ -293,7 +298,7 @@ Item {
       Rectangle {
         anchors.fill: parent
         color: root.scrimColor
-        opacity: root.opened ? 0.72 : 0
+        opacity: root.opened ? 0.45 : 0
 
         Behavior on opacity {
           NumberAnimation {
@@ -314,7 +319,7 @@ Item {
         width: Math.min(
           Math.max(Style.space(1), panel.width - root.screenMargin * 2),
           Math.max(
-            Math.round(Style.space(340) * root.displayScale),
+            Math.round(Style.space(300) * root.displayScale),
             Math.min(root.clients.length, root.maxVisibleCards) * root.cardWidth
               + Math.max(0, Math.min(root.clients.length, root.maxVisibleCards) - 1)
                 * root.cardSpacing
@@ -352,9 +357,9 @@ Item {
           anchors.fill: parent
           radius: root.panelRadius
           color: root.panelShadowColor
-          opacity: 0.78
-          scale: 1.018
-          transform: Translate { y: Math.round(Style.space(10) * root.displayScale) }
+          opacity: 0.66
+          scale: 1.015
+          transform: Translate { y: Math.round(Style.space(8) * root.displayScale) }
         }
 
         Rectangle {
@@ -387,7 +392,7 @@ Item {
             gradient: Gradient {
               GradientStop {
                 position: 0
-                color: Util.alpha(root.foregroundColor, 0.075)
+                color: Util.alpha(root.foregroundColor, 0.06)
               }
               GradientStop {
                 position: 1

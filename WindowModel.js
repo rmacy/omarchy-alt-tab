@@ -5,9 +5,11 @@ function historyRank(client) {
   return isFinite(rank) && rank >= 0 ? rank : 2147483647
 }
 
-function switchableClients(clients, monitorId) {
+function switchableClients(clients, monitorId, workspaceId) {
   var source = Array.isArray(clients) ? clients : []
   var wantedMonitor = String(monitorId)
+  var wantedWorkspace = workspaceId === null || workspaceId === undefined
+    ? null : String(workspaceId)
   var result = []
 
   for (var i = 0; i < source.length; i++) {
@@ -15,6 +17,8 @@ function switchableClients(clients, monitorId) {
     if (!client || !client.address) continue
     if (client.mapped === false || client.acceptsInput === false) continue
     if (String(client.monitor) !== wantedMonitor) continue
+    if (wantedWorkspace !== null
+        && String(client.workspace && client.workspace.id) !== wantedWorkspace) continue
     result.push(client)
   }
 
