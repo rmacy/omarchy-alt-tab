@@ -25,17 +25,48 @@ Item {
   property string targetMonitorName: ""
   property var clients: []
 
+  readonly property color transparentColor: Util.alpha(Color.background, 0)
   readonly property color backgroundColor: Color.menu.background
   readonly property color foregroundColor: Color.menu.text
   readonly property color borderColor: Color.menu.border
   readonly property color scrimColor: Color.menu.scrim
-  readonly property color selectedColor: Util.alpha(Color.menu.selectedBackground, 0.18)
-  readonly property color selectedTextColor: Color.menu.text
-  readonly property color selectedBorderColor: Color.menu.selectedBorder
-  readonly property int cardWidth: Math.max(Style.space(132), 132)
-  readonly property int cardHeight: Math.max(Style.space(156), 156)
-  readonly property int cardSpacing: Math.max(Style.spacing.lg, 12)
-  readonly property int panelPadding: Math.max(Style.spacing.xl, 20)
+  readonly property color surfaceTopColor: Util.alpha(
+    backgroundColor, Math.min(backgroundColor.a, 0.94))
+  readonly property color surfaceBottomColor: Util.alpha(
+    backgroundColor, Math.min(backgroundColor.a, 0.84))
+  readonly property color surfaceBorderColor: Util.alpha(
+    borderColor, Math.min(borderColor.a, 0.58))
+  readonly property color surfaceInnerBorderColor: Util.alpha(foregroundColor, 0.10)
+  readonly property color panelShadowColor: Util.alpha(Color.background, 0.44)
+  readonly property color selectedColor: Util.alpha(
+    Color.menu.selectedBackground, Math.max(Color.menu.selectedBackground.a, 0.14))
+  readonly property color selectedTextColor: Color.menu.selectedText
+  readonly property color selectedSecondaryTextColor: Util.alpha(selectedTextColor, 0.72)
+  readonly property color selectedBorderColor: Color.menu.selectedBorder.a > 0
+    ? Color.menu.selectedBorder : Util.alpha(selectedTextColor, 0.48)
+  readonly property color secondaryTextColor: Util.alpha(foregroundColor, 0.62)
+  readonly property color idleCardColor: Style.normalFillFor(foregroundColor, selectedTextColor)
+  readonly property color hoverCardColor: Style.hoverFillFor(foregroundColor, selectedTextColor)
+  readonly property color idleCardBorderColor: Style.normalBorderFor(foregroundColor, selectedTextColor)
+  readonly property color hoverCardBorderColor: Style.hoverBorderFor(foregroundColor, selectedTextColor)
+  readonly property color iconShadowColor: Util.alpha(Color.background, 0.48)
+  readonly property real displayScale: Math.max(1, Math.min(1.8,
+    panel.height / Math.max(1, Style.space(1080))))
+  readonly property int cardWidth: Math.round(Style.space(180) * displayScale)
+  readonly property int cardHeight: Math.round(Style.space(224) * displayScale)
+  readonly property int cardSpacing: Math.round(Style.space(12) * displayScale)
+  readonly property int panelPadding: Math.round(Style.space(22) * displayScale)
+  readonly property int cardPadding: Math.round(Style.space(16) * displayScale)
+  readonly property int iconSize: Math.round(Style.space(104) * displayScale)
+  readonly property int iconAreaHeight: Math.round(Style.space(132) * displayScale)
+  readonly property int panelRadius: Math.max(Style.cornerRadius, Style.space(22))
+  readonly property int cardRadius: Math.max(Style.cornerRadius, Style.space(16))
+  readonly property int screenMargin: Math.max(
+    Style.space(48), Math.round(panel.width * 0.05))
+  readonly property int maxVisibleCards: 7
+  readonly property int quickMotionDuration: 140
+  readonly property int selectionMotionDuration: 190
+  readonly property int entranceMotionDuration: 220
 
   function monitorScreen(name) {
     var screens = Quickshell.screens || []
@@ -265,7 +296,14 @@ Item {
       Rectangle {
         anchors.fill: parent
         color: root.scrimColor
-        opacity: 0.58
+        opacity: root.opened ? 0.72 : 0
+
+        Behavior on opacity {
+          NumberAnimation {
+            duration: root.entranceMotionDuration
+            easing.type: Easing.OutQuart
+          }
+        }
 
         MouseArea {
           anchors.fill: parent
@@ -273,34 +311,137 @@ Item {
         }
       }
 
-      Rectangle {
+      Item {
         id: switcherPanel
         anchors.centerIn: parent
-        width: Math.min(panel.width - Style.space(64),
-          root.clients.length * root.cardWidth
-            + Math.max(0, root.clients.length - 1) * root.cardSpacing
-            + root.panelPadding * 2)
+        width: Math.min(
+          Math.max(Style.space(1), panel.width - root.screenMargin * 2),
+          Math.max(
+            Math.round(Style.space(340) * root.displayScale),
+            Math.min(root.clients.length, root.maxVisibleCards) * root.cardWidth
+              + Math.max(0, Math.min(root.clients.length, root.maxVisibleCards) - 1)
+                * root.cardSpacing
+              + root.panelPadding * 2))
         height: root.cardHeight + root.panelPadding * 2
-        radius: Math.max(Style.cornerRadius, 18)
-        color: root.backgroundColor
-        border.color: root.borderColor
-        border.width: 1
         opacity: root.loading || root.clients.length > 0 ? 1 : 0
-        scale: root.loading || root.clients.length > 0 ? 1 : 0.96
+        scale: root.loading || root.clients.length > 0 ? 1 : 0.94
+        transformOrigin: Item.Center
 
-        Behavior on opacity { NumberAnimation { duration: 120 } }
-        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+        transform: Translate {
+          y: root.loading || root.clients.length > 0 ? 0 : Style.space(14)
 
-        MouseArea { anchors.fill: parent; onClicked: function(mouse) { mouse.accepted = true } }
+          Behavior on y {
+            NumberAnimation {
+              duration: root.entranceMotionDuration
+              easing.type: Easing.OutQuart
+            }
+          }
+        }
 
-        Text {
+        Behavior on opacity {
+          NumberAnimation {
+            duration: root.entranceMotionDuration
+            easing.type: Easing.OutQuart
+          }
+        }
+        Behavior on scale {
+          NumberAnimation {
+            duration: root.entranceMotionDuration
+            easing.type: Easing.OutQuart
+          }
+        }
+
+        Rectangle {
+          anchors.fill: parent
+          radius: root.panelRadius
+          color: root.panelShadowColor
+          opacity: 0.78
+          scale: 1.018
+          transform: Translate { y: Math.round(Style.space(10) * root.displayScale) }
+        }
+
+        Rectangle {
+          id: panelSurface
+          anchors.fill: parent
+          radius: root.panelRadius
+          border.color: root.surfaceBorderColor
+          border.width: Math.max(Style.spacing.hairline, Style.normalBorderWidth)
+          gradient: Gradient {
+            GradientStop { position: 0; color: root.surfaceTopColor }
+            GradientStop { position: 1; color: root.surfaceBottomColor }
+          }
+
+          Rectangle {
+            anchors.fill: parent
+            anchors.margins: Math.max(Style.spacing.hairline, Style.normalBorderWidth)
+            radius: Math.max(0, parent.radius - anchors.margins)
+            color: root.transparentColor
+            border.color: root.surfaceInnerBorderColor
+            border.width: Style.spacing.hairline
+          }
+
+          Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: Math.max(Style.spacing.hairline, Style.normalBorderWidth)
+            height: Math.round(parent.height * 0.48)
+            radius: Math.max(0, parent.radius - anchors.margins)
+            gradient: Gradient {
+              GradientStop {
+                position: 0
+                color: Util.alpha(root.foregroundColor, 0.075)
+              }
+              GradientStop {
+                position: 1
+                color: root.transparentColor
+              }
+            }
+          }
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          onClicked: function(mouse) { mouse.accepted = true }
+        }
+
+        Row {
           anchors.centerIn: parent
+          spacing: Math.round(Style.space(10) * root.displayScale)
           visible: root.loading
-          text: "Loading windows…"
-          color: root.foregroundColor
-          opacity: 0.72
-          font.family: Style.font.menuFamily
-          font.pixelSize: Style.font.body
+
+          Rectangle {
+            anchors.verticalCenter: parent.verticalCenter
+            width: Math.round(Style.space(7) * root.displayScale)
+            height: width
+            radius: width / 2
+            color: root.selectedTextColor
+
+            SequentialAnimation on opacity {
+              running: root.loading
+              loops: Animation.Infinite
+              NumberAnimation {
+                from: 0.38
+                to: 1
+                duration: root.quickMotionDuration * 2
+                easing.type: Easing.OutCubic
+              }
+              NumberAnimation {
+                from: 1
+                to: 0.38
+                duration: root.quickMotionDuration * 2
+                easing.type: Easing.InCubic
+              }
+            }
+          }
+
+          Text {
+            text: "Loading windows…"
+            color: root.foregroundColor
+            font.family: Style.font.menuFamily
+            font.pixelSize: Math.round(Style.font.title * root.displayScale)
+            font.weight: Font.Medium
+          }
         }
 
         ListView {
@@ -314,14 +455,29 @@ Item {
           model: root.clients
           currentIndex: root.selectedIndex
           boundsBehavior: Flickable.StopAtBounds
-          highlightMoveDuration: 170
+          highlightMoveDuration: root.selectionMotionDuration
           highlightMoveVelocity: -1
 
+          add: Transition {
+            NumberAnimation {
+              property: "opacity"
+              from: 0
+              duration: root.entranceMotionDuration
+              easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+              property: "scale"
+              from: 0.88
+              duration: root.entranceMotionDuration
+              easing.type: Easing.OutQuart
+            }
+          }
+
           highlight: Rectangle {
-            radius: Math.max(Style.cornerRadius - 4, 12)
-            color: "transparent"
+            radius: root.cardRadius
+            color: root.selectedColor
             border.color: root.selectedBorderColor
-            border.width: 2
+            border.width: Math.max(Style.spacing.hairline, Style.selectedBorderWidth)
           }
 
           delegate: Rectangle {
@@ -329,86 +485,225 @@ Item {
             required property var modelData
             required property int index
             readonly property bool selected: index === root.selectedIndex
+            readonly property bool hot: cardPointer.containsMouse
 
             width: root.cardWidth
             height: root.cardHeight
-            radius: Math.max(Style.cornerRadius - 4, 12)
-            color: selected ? root.selectedColor : "transparent"
-            border.color: selected ? root.selectedBorderColor : "transparent"
-            border.width: selected ? 1 : 0
-            scale: selected ? 1.0 : 0.91
-            y: selected ? 0 : Style.space(7)
-            opacity: selected ? 1 : 0.68
+            radius: root.cardRadius
+            color: selected ? root.transparentColor
+              : hot ? root.hoverCardColor : root.idleCardColor
+            border.color: selected ? root.transparentColor
+              : hot ? root.hoverCardBorderColor : root.idleCardBorderColor
+            border.width: Math.max(Style.spacing.hairline,
+              hot ? Style.hoverBorderWidth : Style.normalBorderWidth)
+            scale: selected ? 1 : hot ? 0.965 : 0.935
+            y: selected ? 0 : Math.round(
+              Style.space(hot ? 4 : 7) * root.displayScale)
+            opacity: selected ? 1 : hot ? 0.86 : 0.72
+            z: selected ? 2 : hot ? 1 : 0
+            transformOrigin: Item.Center
 
-            Behavior on scale { NumberAnimation { duration: 170; easing.type: Easing.OutCubic } }
-            Behavior on y { NumberAnimation { duration: 170; easing.type: Easing.OutCubic } }
-            Behavior on opacity { NumberAnimation { duration: 140 } }
-            Behavior on color { ColorAnimation { duration: 140 } }
+            Behavior on scale {
+              NumberAnimation {
+                duration: root.selectionMotionDuration
+                easing.type: Easing.OutQuart
+              }
+            }
+            Behavior on y {
+              NumberAnimation {
+                duration: root.selectionMotionDuration
+                easing.type: Easing.OutQuart
+              }
+            }
+            Behavior on opacity {
+              NumberAnimation {
+                duration: root.quickMotionDuration
+                easing.type: Easing.OutCubic
+              }
+            }
+            Behavior on color {
+              ColorAnimation { duration: root.quickMotionDuration }
+            }
+            Behavior on border.color {
+              ColorAnimation { duration: root.quickMotionDuration }
+            }
 
             Column {
-              anchors.fill: parent
-              anchors.margins: Style.spacing.md
-              spacing: Style.spacing.sm
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              anchors.leftMargin: root.cardPadding
+              anchors.rightMargin: root.cardPadding
+              spacing: Math.round(Style.space(4) * root.displayScale)
 
               Item {
                 width: parent.width
-                height: Math.max(Style.space(94), 94)
+                height: root.iconAreaHeight
+
+                Rectangle {
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  anchors.bottom: parent.bottom
+                  anchors.bottomMargin: Math.round(Style.space(10) * root.displayScale)
+                  width: Math.round(root.iconSize * 0.72)
+                  height: Math.round(Style.space(13) * root.displayScale)
+                  radius: height / 2
+                  color: root.iconShadowColor
+                  opacity: windowCard.selected ? 0.72 : 0.42
+                  scale: windowCard.selected ? 1 : 0.82
+
+                  Behavior on opacity {
+                    NumberAnimation { duration: root.selectionMotionDuration }
+                  }
+                  Behavior on scale {
+                    NumberAnimation {
+                      duration: root.selectionMotionDuration
+                      easing.type: Easing.OutQuart
+                    }
+                  }
+                }
 
                 Image {
                   id: appIcon
-                  anchors.centerIn: parent
-                  width: Math.max(Style.space(84), 84)
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  y: Math.round((parent.height - height) / 2
+                    - (windowCard.selected ? Style.space(4) * root.displayScale : 0))
+                  width: root.iconSize
                   height: width
                   source: String(windowCard.modelData.iconSource || "")
                   fillMode: Image.PreserveAspectFit
-                  sourceSize.width: width * Screen.devicePixelRatio
-                  sourceSize.height: height * Screen.devicePixelRatio
+                  sourceSize.width: Math.round(width * Screen.devicePixelRatio)
+                  sourceSize.height: Math.round(height * Screen.devicePixelRatio)
                   asynchronous: true
                   smooth: true
+                  opacity: windowCard.selected ? 1 : 0.84
+                  scale: windowCard.selected ? 1.045 : 0.96
+
+                  Behavior on y {
+                    NumberAnimation {
+                      duration: root.selectionMotionDuration
+                      easing.type: Easing.OutQuart
+                    }
+                  }
+                  Behavior on scale {
+                    NumberAnimation {
+                      duration: root.selectionMotionDuration
+                      easing.type: Easing.OutQuart
+                    }
+                  }
+                  Behavior on opacity {
+                    NumberAnimation { duration: root.quickMotionDuration }
+                  }
                 }
 
                 Text {
                   anchors.centerIn: parent
+                  width: root.iconSize
+                  height: root.iconSize
                   visible: appIcon.status !== Image.Ready
                   text: "󰍲"
-                  color: windowCard.selected ? root.selectedTextColor : root.foregroundColor
+                  color: windowCard.selected
+                    ? root.selectedTextColor : root.foregroundColor
+                  opacity: windowCard.selected ? 1 : 0.78
+                  horizontalAlignment: Text.AlignHCenter
+                  verticalAlignment: Text.AlignVCenter
                   font.family: Style.font.menuFamily
-                  font.pixelSize: Math.max(Style.font.iconLarge, 42)
+                  font.pixelSize: Math.max(
+                    Style.font.displayLarge, Math.round(root.iconSize * 0.56))
+                  scale: windowCard.selected ? 1.045 : 0.96
+
+                  Behavior on scale {
+                    NumberAnimation {
+                      duration: root.selectionMotionDuration
+                      easing.type: Easing.OutQuart
+                    }
+                  }
+                  Behavior on opacity {
+                    NumberAnimation { duration: root.quickMotionDuration }
+                  }
                 }
               }
 
               Text {
                 width: parent.width
                 text: String(windowCard.modelData.appName || "Application")
-                color: windowCard.selected ? root.selectedTextColor : root.foregroundColor
-                horizontalAlignment: Text.AlignHCenter
+                color: windowCard.selected
+                  ? root.selectedTextColor : root.foregroundColor
+                horizontalAlignment: Text.AlignLeft
                 elide: Text.ElideRight
                 maximumLineCount: 1
                 font.family: Style.font.menuFamily
-                font.pixelSize: Style.font.body
+                font.pixelSize: Math.round(Style.font.title * root.displayScale)
                 font.weight: windowCard.selected ? Font.DemiBold : Font.Medium
+
+                Behavior on color {
+                  ColorAnimation { duration: root.quickMotionDuration }
+                }
               }
 
               Text {
                 width: parent.width
+                visible: text.length > 0
                 text: String(windowCard.modelData.displayTitle || "")
-                color: windowCard.selected ? root.selectedTextColor : root.foregroundColor
-                opacity: 0.7
-                horizontalAlignment: Text.AlignHCenter
+                color: windowCard.selected
+                  ? root.selectedSecondaryTextColor : root.secondaryTextColor
+                horizontalAlignment: Text.AlignLeft
                 elide: Text.ElideRight
                 maximumLineCount: 1
                 font.family: Style.font.menuFamily
-                font.pixelSize: Style.font.caption
+                font.pixelSize: Math.round(Style.font.bodySmall * root.displayScale)
+
+                Behavior on color {
+                  ColorAnimation { duration: root.quickMotionDuration }
+                }
               }
             }
 
             MouseArea {
+              id: cardPointer
               anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
               onClicked: {
                 root.selectedIndex = windowCard.index
                 root.commit()
               }
             }
+          }
+        }
+
+        Rectangle {
+          x: root.panelPadding
+          y: root.panelPadding
+          width: Math.round(Style.space(30) * root.displayScale)
+          height: root.cardHeight
+          z: 4
+          opacity: !root.loading && !strip.atXBeginning ? 1 : 0
+          gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop { position: 0; color: root.surfaceBottomColor }
+            GradientStop { position: 1; color: root.transparentColor }
+          }
+
+          Behavior on opacity {
+            NumberAnimation { duration: root.quickMotionDuration }
+          }
+        }
+
+        Rectangle {
+          x: switcherPanel.width - root.panelPadding - width
+          y: root.panelPadding
+          width: Math.round(Style.space(30) * root.displayScale)
+          height: root.cardHeight
+          z: 4
+          opacity: !root.loading && !strip.atXEnd ? 1 : 0
+          gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop { position: 0; color: root.transparentColor }
+            GradientStop { position: 1; color: root.surfaceBottomColor }
+          }
+
+          Behavior on opacity {
+            NumberAnimation { duration: root.quickMotionDuration }
           }
         }
       }
