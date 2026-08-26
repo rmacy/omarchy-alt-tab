@@ -1,7 +1,8 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
-import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
 import "WindowModel.js" as WindowModel
@@ -17,7 +18,6 @@ Item {
   property bool opened: false
   property bool loading: false
   property bool commitWhenReady: false
-  property int requestSerial: 0
   property int pendingDirection: 1
   property int queuedDelta: 0
   property int selectedIndex: -1
@@ -25,6 +25,9 @@ Item {
   property string targetMonitorName: ""
   property int targetWorkspaceId: -1
   property var clients: []
+  property var desktopRows: []
+  property var desktopCache: ({})
+  property string modelError: ""
 
   readonly property color transparentColor: Util.alpha(Color.background, 0)
   readonly property color backgroundColor: Color.menu.background
@@ -67,8 +70,10 @@ Item {
   readonly property int quickMotionDuration: 130
   readonly property int selectionMotionDuration: 170
   readonly property int entranceMotionDuration: 200
-  readonly property bool emptyState: root.opened && !root.loading && root.clients.length === 0
-  readonly property bool compactState: root.loading || root.emptyState
+  readonly property bool errorState: root.opened && !root.loading && root.modelError.length > 0
+  readonly property bool emptyState: root.opened && !root.loading
+    && !root.errorState && root.clients.length === 0
+  readonly property bool compactState: root.loading || root.emptyState || root.errorState
   readonly property int compactPanelWidth: Math.round(Style.space(270) * displayScale)
   readonly property int compactPanelHeight: Math.round(Style.space(84) * displayScale)
   readonly property int singlePanelWidth: Math.round(Style.space(320) * displayScale)
@@ -83,75 +88,135 @@ Item {
     return screens.length > 0 ? screens[0] : null
   }
 
-  function desktopEntry(client) {
+  function desktopEntry(data) {
     if (!root.appLibrary) return null
-    var entries = root.appLibrary.sortedEntries("") || []
-    var keys = [String(client.initialClass || ""), String(client.class || ""),
-      String(client.title || "")]
-    var best = null
-    var bestScore = 100
-
-    for (var i = 0; i < entries.length; i++) {
-      var entry = entries[i] && entries[i].entry ? entries[i].entry : entries[i]
-      var entryId = String(entry.id || "").replace(/\.desktop$/i, "").toLowerCase()
-      var entryName = String(root.appLibrary.entryName(entry) || "").toLowerCase()
-      for (var j = 0; j < keys.length; j++) {
-        var key = keys[j].replace(/\.desktop$/i, "").toLowerCase()
-        if (!key) continue
-        var score = 100
-        if (entryId === key) score = 0
-        else if (entryId.slice(-(key.length + 1)) === "." + key
-                 || key.slice(-(entryId.length + 1)) === "." + entryId) score = 1
-        else if (entryName === key) score = 2
-        if (score < bestScore) {
-          best = entry
-          bestScore = score
-        }
-      }
-    }
-    return best
+    var cacheKey = (String(data.initialClass || "") + "\n"
+      + String(data.class || "") + "\n" + String(data.title || "")).toLowerCase()
+    if (root.desktopCache[cacheKey] !== undefined) return root.desktopCache[cacheKey]
+    var entry = WindowModel.desktopEntry(root.desktopRows,
+      data.initialClass, data.class, data.title)
+    root.desktopCache[cacheKey] = entry || null
+    return entry
   }
 
-  function decorate(client) {
-    var entry = root.desktopEntry(client)
-    var appName = entry ? root.appLibrary.entryName(entry) : ""
-    var iconName = entry ? String(entry.icon || "")
-      : String(client.initialClass || client.class || "application-x-executable")
-    var decorated = ({})
-    for (var key in client) decorated[key] = client[key]
-    decorated.appName = appName || WindowModel.classLabel(client.class || client.initialClass)
-    decorated.displayTitle = WindowModel.shortenedTitle(client.title || decorated.appName, 96)
-    decorated.iconSource = root.appLibrary
-      ? root.appLibrary.iconSource(iconName)
-      : Quickshell.iconPath(iconName, true)
-    return decorated
+  function rebuildDesktopCatalog() {
+    root.desktopCache = ({})
+    root.desktopRows = root.appLibrary ? (root.appLibrary.sortedEntries("") || []) : []
+  }
+
+  function decorate(toplevel) {
+    var data = WindowModel.metadata(toplevel)
+    var entry = root.desktopEntry(data)
+    var fallbackClass = String(data.initialClass || data.class || "")
+    var appName = entry && root.appLibrary
+      ? String(root.appLibrary.entryName(entry) || "") : ""
+    var iconName = entry ? String(entry.icon || "") : WindowModel.safeIconName(fallbackClass)
+    return {
+      toplevel: toplevel,
+      stableId: WindowModel.stableId(toplevel),
+      address: WindowModel.address(toplevel),
+      appName: appName || WindowModel.classLabel(data.class || data.initialClass),
+      displayTitle: WindowModel.shortenedTitle(
+        String(toplevel.title || data.title || appName || ""), 96),
+      iconSource: root.appLibrary
+        ? root.appLibrary.iconSource(iconName)
+        : Quickshell.iconPath(iconName, true)
+    }
+  }
+
+  function currentStableId() {
+    if (root.selectedIndex < 0 || root.selectedIndex >= root.clients.length) return ""
+    return String(root.clients[root.selectedIndex].stableId || "")
+  }
+
+  function selectedIndexForStableId(id, windows) {
+    var wanted = String(id || "")
+    if (!wanted) return -1
+    for (var i = 0; i < windows.length; i++) {
+      if (String(windows[i].stableId || "") === wanted) return i
+    }
+    return -1
+  }
+
+  function refreshClients(initial) {
+    if (!root.opened) return
+    var previousStableId = root.currentStableId()
+    var previousIndex = root.selectedIndex
+    try {
+      var filtered = WindowModel.switchableClients(Hyprland.toplevels.values,
+        root.targetMonitorId, root.targetWorkspaceId, WindowModel.MAX_CLIENTS)
+      var decorated = []
+      for (var i = 0; i < filtered.length; i++) decorated.push(root.decorate(filtered[i]))
+      root.clients = decorated
+      root.modelError = ""
+
+      if (initial) {
+        root.selectedIndex = WindowModel.initialIndex(root.pendingDirection, decorated.length)
+        if (root.queuedDelta !== 0)
+          root.selectedIndex = WindowModel.nextIndex(
+            root.selectedIndex, root.queuedDelta, decorated.length)
+      } else {
+        var preserved = root.selectedIndexForStableId(previousStableId, decorated)
+        root.selectedIndex = preserved >= 0 ? preserved
+          : decorated.length > 0 ? Math.min(Math.max(previousIndex, 0), decorated.length - 1) : -1
+      }
+    } catch (error) {
+      root.clients = []
+      root.selectedIndex = -1
+      root.modelError = "Could not read Hyprland windows"
+      console.warn("bitr0t.window-switcher: native toplevel refresh failed:", error)
+    }
+    root.loading = false
+    Qt.callLater(function() {
+      if (root.selectedIndex >= 0)
+        strip.positionViewAtIndex(root.selectedIndex, ListView.Contain)
+      if (root.commitWhenReady) root.commit()
+    })
+  }
+
+  function focusedScopeStillMatches() {
+    var monitor = Hyprland.focusedMonitor
+    var workspace = Hyprland.focusedWorkspace
+    return monitor && workspace
+      && Number(monitor.id) === root.targetMonitorId
+      && Number(workspace.id) === root.targetWorkspaceId
+  }
+
+  function queueLiveRefresh() {
+    if (!root.opened) return
+    if (!root.focusedScopeStillMatches()) {
+      root.cancel()
+      return
+    }
+    refreshTimer.restart()
   }
 
   function showForFocusedMonitor(direction) {
     var monitor = Hyprland.focusedMonitor
     var workspace = Hyprland.focusedWorkspace
-    if (!monitor) return false
+    if (!monitor || !workspace) return false
 
-    root.requestSerial += 1
-    clientsProcess.serial = root.requestSerial
     root.pendingDirection = Number(direction) < 0 ? -1 : 1
     root.queuedDelta = 0
     root.commitWhenReady = false
     root.targetMonitorId = Number(monitor.id)
     root.targetMonitorName = String(monitor.name || "")
-    root.targetWorkspaceId = workspace ? Number(workspace.id) : -1
+    root.targetWorkspaceId = Number(workspace.id)
     root.clients = []
     root.selectedIndex = -1
+    root.modelError = ""
     root.loading = true
     root.opened = true
-    clientsProcess.command = ["hyprctl", "-j", "clients"]
-    clientsProcess.running = true
+    root.rebuildDesktopCatalog()
+    root.refreshClients(true)
     return true
   }
 
   function advance(direction) {
-    var delta = Number(direction) < 0 ? -1 : 1
-    if (!root.opened) return root.showForFocusedMonitor(delta) ? "ok" : "unavailable"
+    var numeric = Number(direction)
+    var delta = isFinite(numeric) && numeric !== 0 ? Math.trunc(numeric) : 1
+    if (!root.opened) return root.showForFocusedMonitor(delta < 0 ? -1 : 1)
+      ? "ok" : "unavailable"
     if (root.loading) root.queuedDelta += delta
     else root.select(delta)
     return "ok"
@@ -161,9 +226,10 @@ Item {
     var direction = 1
     try {
       var payload = JSON.parse(payloadJson || "{}")
-      direction = Number(payload.direction) < 0 ? -1 : 1
+      direction = Number(payload.direction)
+      if (!isFinite(direction) || direction === 0) direction = 1
     } catch (_error) { }
-    root.advance(direction)
+    return root.advance(direction)
   }
 
   function close() {
@@ -171,13 +237,12 @@ Item {
   }
 
   function cancel() {
-    root.requestSerial += 1
     root.opened = false
     root.loading = false
     root.commitWhenReady = false
     root.clients = []
     root.selectedIndex = -1
-    if (clientsProcess.running) clientsProcess.running = false
+    refreshTimer.stop()
   }
 
   function select(delta) {
@@ -196,37 +261,16 @@ Item {
       return
     }
 
-    var address = String(root.clients[root.selectedIndex].address || "")
+    var selectedStableId = String(root.clients[root.selectedIndex].stableId || "")
+    var live = WindowModel.findSwitchableByStableId(Hyprland.toplevels.values,
+      selectedStableId, root.targetMonitorId, root.targetWorkspaceId)
     root.cancel()
-    if (!/^0x[0-9a-f]+$/i.test(address)) return
+    if (!live || !/^[0-9]+$/.test(selectedStableId)) return
     Quickshell.execDetached([
       "hyprctl", "eval",
-      'hl.dispatch(hl.dsp.focus({ window = "address:' + address + '" }))\n'
+      'hl.dispatch(hl.dsp.focus({ window = "stableid:' + selectedStableId + '" }))\n'
         + 'hl.dispatch(hl.dsp.window.bring_to_top())'
     ])
-  }
-
-  function applyClients(text, serial, exitCode) {
-    if (serial !== root.requestSerial || !root.opened) return
-    root.loading = false
-    var parsed = []
-    if (exitCode === 0) {
-      try { parsed = JSON.parse(String(text || "[]")) } catch (_error) { parsed = [] }
-    }
-    var filtered = WindowModel.switchableClients(
-      parsed, root.targetMonitorId, root.targetWorkspaceId)
-    var decorated = []
-    for (var i = 0; i < filtered.length; i++) decorated.push(root.decorate(filtered[i]))
-    root.clients = decorated
-    root.selectedIndex = WindowModel.initialIndex(root.pendingDirection, decorated.length)
-    if (root.queuedDelta !== 0)
-      root.selectedIndex = WindowModel.nextIndex(root.selectedIndex, root.queuedDelta, decorated.length)
-
-    Qt.callLater(function() {
-      if (root.selectedIndex >= 0)
-        strip.positionViewAtIndex(root.selectedIndex, ListView.Contain)
-      if (root.commitWhenReady) root.commit()
-    })
   }
 
   function status(_argument) {
@@ -236,12 +280,14 @@ Item {
       monitor: root.targetMonitorName,
       workspace: root.targetWorkspaceId,
       count: root.clients.length,
-      state: root.loading ? "loading"
+      capped: root.clients.length >= WindowModel.MAX_CLIENTS,
+      state: root.modelError ? "error"
+        : root.loading ? "loading"
         : root.clients.length === 0 ? "empty"
         : root.clients.length === 1 ? "single" : "multiple",
+      error: root.modelError,
       selectedIndex: root.selectedIndex,
-      selectedAddress: root.selectedIndex >= 0 && root.selectedIndex < root.clients.length
-        ? String(root.clients[root.selectedIndex].address || "") : "",
+      selectedStableId: root.currentStableId(),
       panelWidth: panel.width,
       panelHeight: panel.height,
       stripWidth: strip.width,
@@ -252,12 +298,34 @@ Item {
     })
   }
 
-  Process {
-    id: clientsProcess
-    property int serial: 0
-    stdout: StdioCollector { id: clientsOutput; waitForEnd: true }
-    onExited: function(exitCode) {
-      root.applyClients(clientsOutput.text, clientsProcess.serial, exitCode)
+  Timer {
+    id: refreshTimer
+    interval: 16
+    repeat: false
+    onTriggered: root.refreshClients(false)
+  }
+
+  Connections {
+    target: Hyprland.toplevels
+    function onValuesChanged() { root.queueLiveRefresh() }
+  }
+
+  Connections {
+    target: Hyprland.workspaces
+    function onValuesChanged() { root.queueLiveRefresh() }
+  }
+
+  Connections {
+    target: Hyprland.monitors
+    function onValuesChanged() { root.queueLiveRefresh() }
+  }
+
+  Connections {
+    target: root.appLibrary
+    function onAppsChanged() {
+      if (!root.opened) return
+      root.rebuildDesktopCatalog()
+      refreshTimer.restart()
     }
   }
 
@@ -495,6 +563,41 @@ Item {
           }
         }
 
+        Row {
+          anchors.centerIn: parent
+          spacing: Math.round(Style.space(12) * root.displayScale)
+          visible: root.errorState
+
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: "󰅚"
+            color: Color.urgent
+            font.family: Style.font.menuFamily
+            font.pixelSize: Math.round(Style.font.displayLarge * root.displayScale)
+          }
+
+          Column {
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: Math.round(Style.space(2) * root.displayScale)
+
+            Text {
+              text: "Window list unavailable"
+              color: root.foregroundColor
+              font.family: Style.font.menuFamily
+              font.pixelSize: Math.round(Style.font.title * root.displayScale)
+              font.weight: Font.DemiBold
+            }
+
+            Text {
+              text: root.modelError
+              textFormat: Text.PlainText
+              color: root.secondaryTextColor
+              font.family: Style.font.menuFamily
+              font.pixelSize: Math.round(Style.font.bodySmall * root.displayScale)
+            }
+          }
+        }
+
         Rectangle {
           id: singleWindowCard
           visible: !root.loading && root.clients.length === 1
@@ -504,6 +607,12 @@ Item {
           color: root.selectedColor
           border.color: root.selectedBorderColor
           border.width: Math.max(Style.spacing.hairline, Style.selectedBorderWidth)
+          Accessible.role: Accessible.Button
+          Accessible.name: root.clients.length === 1
+            ? String(root.clients[0].appName || "Application") : "Application"
+          Accessible.description: root.clients.length === 1
+            ? String(root.clients[0].displayTitle || "") : ""
+          Accessible.onPressAction: root.commit()
 
           Row {
             id: singleWindowContent
@@ -560,6 +669,7 @@ Item {
                 width: parent.width
                 text: root.clients.length === 1
                   ? String(root.clients[0].appName || "Application") : ""
+                textFormat: Text.PlainText
                 color: root.selectedTextColor
                 elide: Text.ElideRight
                 maximumLineCount: 1
@@ -572,6 +682,7 @@ Item {
                 width: parent.width
                 text: root.clients.length === 1
                   ? String(root.clients[0].displayTitle || "") : ""
+                textFormat: Text.PlainText
                 color: root.selectedSecondaryTextColor
                 elide: Text.ElideRight
                 maximumLineCount: 1
@@ -646,6 +757,13 @@ Item {
             opacity: selected ? 1 : hot ? 0.86 : 0.72
             z: selected ? 2 : hot ? 1 : 0
             transformOrigin: Item.Center
+            Accessible.role: Accessible.Button
+            Accessible.name: String(windowCard.modelData.appName || "Application")
+            Accessible.description: String(windowCard.modelData.displayTitle || "")
+            Accessible.onPressAction: {
+              root.selectedIndex = windowCard.index
+              root.commit()
+            }
 
             Behavior on scale {
               NumberAnimation {
@@ -770,6 +888,7 @@ Item {
               Text {
                 width: parent.width
                 text: String(windowCard.modelData.appName || "Application")
+                textFormat: Text.PlainText
                 color: windowCard.selected
                   ? root.selectedTextColor : root.foregroundColor
                 horizontalAlignment: Text.AlignLeft
@@ -788,6 +907,7 @@ Item {
                 width: parent.width
                 visible: text.length > 0
                 text: String(windowCard.modelData.displayTitle || "")
+                textFormat: Text.PlainText
                 color: windowCard.selected
                   ? root.selectedSecondaryTextColor : root.secondaryTextColor
                 horizontalAlignment: Text.AlignLeft

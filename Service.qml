@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import "BindingScript.js" as BindingScript
 
 Item {
   id: root
@@ -12,94 +13,14 @@ Item {
     + "-" + Math.random().toString(36).slice(2)
   property bool applyQueued: false
   property bool shuttingDown: false
-
-  function applyLua() {
-    return [
-      'local owner = "' + root.ownerToken + '"',
-      'local submap = "bitr0t-window-switcher"',
-      '_G.bitr0t_window_switcher_owner = owner',
-      '_G.bitr0t_window_switcher_active = false',
-      'local function shell_call(method, argument)',
-      '  local suffix = argument and (" " .. argument) or ""',
-      '  hl.exec_cmd("omarchy-shell -q shell call bitr0t.window-switcher " .. method .. suffix)',
-      'end',
-      'local function reset_and_call(method)',
-      '  if _G.bitr0t_window_switcher_owner ~= owner or not _G.bitr0t_window_switcher_active then return end',
-      '  _G.bitr0t_window_switcher_active = false',
-      '  hl.dispatch(hl.dsp.submap("reset"))',
-      '  if method then',
-      '    hl.timer(function() shell_call(method, "ignored") end, { timeout = 40, type = "oneshot" })',
-      '  end',
-      'end',
-      'local watch_alt',
-      'watch_alt = function()',
-      '  if _G.bitr0t_window_switcher_owner ~= owner or not _G.bitr0t_window_switcher_active then return end',
-      '  if not hl.is_key_down("Alt_L") and not hl.is_key_down("Alt_R") then',
-      '    reset_and_call("commit")',
-      '    return',
-      '  end',
-      '  hl.timer(watch_alt, { timeout = 16, type = "oneshot" })',
-      'end',
-      'local function begin(direction)',
-      '  _G.bitr0t_window_switcher_active = true',
-      '  hl.dispatch(hl.dsp.submap(submap))',
-      '  shell_call("advance", tostring(direction))',
-      '  hl.timer(watch_alt, { timeout = 16, type = "oneshot" })',
-      'end',
-      'hl.unbind("ALT + TAB")',
-      'hl.unbind("ALT + SHIFT + TAB")',
-      'hl.unbind("ALT + ALT_L")',
-      'hl.unbind("ALT + ALT_R")',
-      'hl.unbind("ALT_L")',
-      'hl.unbind("ALT_R")',
-      'hl.define_submap(submap, function()',
-      '  hl.bind("ALT + TAB", function() shell_call("advance", "1") end,',
-      '    { description = "Window switcher: next", dont_inhibit = true })',
-      '  hl.bind("ALT + SHIFT + TAB", function() shell_call("advance", "-1") end,',
-      '    { description = "Window switcher: previous", dont_inhibit = true })',
-      '  hl.bind("LEFT", function() shell_call("advance", "-1") end,',
-      '    { description = "Window switcher: previous", dont_inhibit = true })',
-      '  hl.bind("RIGHT", function() shell_call("advance", "1") end,',
-      '    { description = "Window switcher: next", dont_inhibit = true })',
-      '  hl.bind("ESCAPE", function() reset_and_call("cancel") end,',
-      '    { description = "Window switcher: cancel", dont_inhibit = true })',
-      '  hl.bind("RETURN", function() reset_and_call("commit") end,',
-      '    { description = "Window switcher: select", dont_inhibit = true })',
-      'end)',
-      'hl.bind("ALT + TAB", function() begin(1) end,',
-      '  { description = "Window switcher", dont_inhibit = true })',
-      'hl.bind("ALT + SHIFT + TAB", function() begin(-1) end,',
-      '  { description = "Window switcher (reverse)", dont_inhibit = true })',
-      'hl.bind("ALT_L", function() reset_and_call("commit") end,',
-      '  { release = true, non_consuming = true, submap_universal = true, ignore_mods = true, dont_inhibit = true })',
-      'hl.bind("ALT_R", function() reset_and_call("commit") end,',
-      '  { release = true, non_consuming = true, submap_universal = true, ignore_mods = true, dont_inhibit = true })',
-      'hl.bind("ALT + ALT_L", function() reset_and_call("commit") end,',
-      '  { release = true, non_consuming = true, submap_universal = true, ignore_mods = true, dont_inhibit = true })',
-      'hl.bind("ALT + ALT_R", function() reset_and_call("commit") end,',
-      '  { release = true, non_consuming = true, submap_universal = true, ignore_mods = true, dont_inhibit = true })'
-    ].join("\n")
-  }
-
-  function cleanupLua() {
-    return [
-      'local owner = "' + root.ownerToken + '"',
-      'if _G.bitr0t_window_switcher_owner == owner then',
-      '  _G.bitr0t_window_switcher_owner = nil',
-      '  _G.bitr0t_window_switcher_active = false',
-      '  hl.dispatch(hl.dsp.submap("reset"))',
-      '  hl.unbind("ALT + TAB")',
-      '  hl.unbind("ALT + SHIFT + TAB")',
-      '  hl.unbind("ALT + ALT_L")',
-      '  hl.unbind("ALT + ALT_R")',
-      '  hl.unbind("ALT_L")',
-      '  hl.unbind("ALT_R")',
-      'end'
-    ].join("\n")
-  }
+  property int applyAttempts: 0
+  property bool registrationFailed: false
 
   function queueApply() {
-    if (!root.shuttingDown) applyTimer.restart()
+    if (root.shuttingDown) return
+    root.applyAttempts = 0
+    root.registrationFailed = false
+    applyTimer.restart()
   }
 
   function applyBindings() {
@@ -109,8 +30,19 @@ Item {
       return
     }
     root.applyQueued = false
-    applyProcess.command = ["hyprctl", "eval", root.applyLua()]
+    applyProcess.command = ["hyprctl", "eval",
+      BindingScript.generateApply({ ownerToken: root.ownerToken })]
     applyProcess.running = true
+  }
+
+  function notifyRegistrationFailure() {
+    Quickshell.execDetached([
+      "notify-send", "-u", "critical", "-a", "Window Switcher",
+      "Window Switcher Alt-Tab registration failed",
+      "Alt-Tab bindings could not be registered after "
+        + BindingScript.REGISTRATION_RETRY.maxAttempts
+        + " attempts. Run hyprctl reload to retry."
+    ])
   }
 
   Timer {
@@ -120,12 +52,34 @@ Item {
     onTriggered: root.applyBindings()
   }
 
+  Timer {
+    id: retryTimer
+    repeat: false
+    onTriggered: root.applyBindings()
+  }
+
   Process {
     id: applyProcess
     onExited: function(exitCode) {
       if (root.shuttingDown) return
-      if (exitCode !== 0)
-        console.warn("bitr0t.window-switcher: failed to register Alt-Tab bindings (exit " + exitCode + ")")
+      if (exitCode === 0) {
+        root.applyAttempts = 0
+        root.registrationFailed = false
+      } else {
+        root.applyAttempts += 1
+        if (root.applyAttempts < BindingScript.REGISTRATION_RETRY.maxAttempts) {
+          retryTimer.interval = BindingScript.REGISTRATION_RETRY.baseDelayMs
+            * Math.pow(2, root.applyAttempts - 1)
+          retryTimer.restart()
+          return
+        }
+        if (!root.registrationFailed) {
+          root.registrationFailed = true
+          console.warn("bitr0t.window-switcher: Alt-Tab registration failed after "
+            + root.applyAttempts + " attempts")
+          root.notifyRegistrationFailure()
+        }
+      }
       if (root.applyQueued) root.queueApply()
     }
   }
@@ -133,7 +87,10 @@ Item {
   Connections {
     target: Hyprland
     function onRawEvent(event) {
-      if (event && String(event.name) === "configreloaded") root.queueApply()
+      if (!event || String(event.name) !== "configreloaded") return
+      if (root.shell && typeof root.shell.callIfLoaded === "function")
+        root.shell.callIfLoaded("bitr0t.window-switcher", "cancel", "config-reload")
+      root.queueApply()
     }
   }
 
@@ -142,11 +99,13 @@ Item {
   Component.onDestruction: {
     root.shuttingDown = true
     applyTimer.stop()
+    retryTimer.stop()
     if (applyProcess.running) applyProcess.running = false
     Quickshell.execDetached([
       "sh", "-c",
       'hyprctl eval "$1" >/dev/null 2>&1; hyprctl reload >/dev/null 2>&1',
-      "window-switcher-cleanup", root.cleanupLua()
+      "window-switcher-cleanup",
+      BindingScript.generateCleanup({ ownerToken: root.ownerToken })
     ])
   }
 }

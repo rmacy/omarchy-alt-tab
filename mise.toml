@@ -2,17 +2,25 @@
 node = "24"
 
 [tasks.test]
-description = "Run the window switcher model tests"
+description = "Run model, generated-Lua, QML security, and manifest tests"
 run = "node --test tests/*.test.mjs"
 
 [tasks.lint]
-description = "Validate plugin QML"
-run = "/usr/lib/qt6/bin/qmllint -I /usr/share/omarchy/shell WindowSwitcher.qml Service.qml"
+description = "Run strict QML diagnostics with Omarchy-aware imports"
+run = "tests/run-qmllint"
+
+[tasks.runtime]
+description = "Instantiate the shipped overlay in the real Quickshell runtime"
+run = "tests/run-runtime-smoke"
 
 [tasks.validate]
 description = "Validate the Omarchy plugin manifest"
 run = "omarchy plugin validate ."
 
+[tasks.test-live]
+description = "Exercise the installed plugin in the active Hyprland session"
+run = "tests/run-live-smoke"
+
 [tasks.check]
-description = "Run every repository check"
-depends = ["test", "lint", "validate"]
+description = "Run every CI-safe repository check"
+depends = ["test", "lint", "runtime", "validate"]
