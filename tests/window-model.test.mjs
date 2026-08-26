@@ -69,6 +69,8 @@ test("normalizes native toplevels and caps candidates", () => {
   assert.equal(result.length, 256)
   assert.equal(model.stableId(result[0]), "100")
   assert.equal(model.stableId(result[255]), "355")
+  const qmlList = { 0: clients[0], length: 1 }
+  assert.equal(model.switchableClients(qmlList, 7, 4).length, 1)
 })
 
 test("revalidates stable identity and current scope", () => {

@@ -6,7 +6,8 @@ var STABLE_ID_PATTERN = /^[0-9]+$/
 
 function valuesOf(value) {
   if (Array.isArray(value)) return value
-  if (value && Array.isArray(value.values)) return value.values
+  if (value && typeof value !== "string" && typeof value.length === "number") return value
+  if (value && value.values !== undefined) return valuesOf(value.values)
   return []
 }
 
