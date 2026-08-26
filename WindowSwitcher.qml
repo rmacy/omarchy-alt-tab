@@ -208,6 +208,7 @@ Item {
       cardPanelHeight: switcherPanel.height,
       cardPanelOpacity: switcherPanel.opacity
     })
+  }
 
   Process {
     id: clientsProcess
