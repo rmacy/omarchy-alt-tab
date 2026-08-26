@@ -67,6 +67,11 @@ Item {
   readonly property int quickMotionDuration: 130
   readonly property int selectionMotionDuration: 170
   readonly property int entranceMotionDuration: 200
+  readonly property bool emptyState: root.opened && !root.loading && root.clients.length === 0
+  readonly property bool compactState: root.loading || root.emptyState
+  readonly property int compactPanelWidth: Math.round(Style.space(270) * displayScale)
+  readonly property int compactPanelHeight: Math.round(Style.space(84) * displayScale)
+  readonly property int singlePanelWidth: cardWidth + panelPadding * 2
 
   function monitorScreen(name) {
     var screens = Quickshell.screens || []
@@ -214,12 +219,9 @@ Item {
     if (root.queuedDelta !== 0)
       root.selectedIndex = WindowModel.nextIndex(root.selectedIndex, root.queuedDelta, decorated.length)
 
-    if (decorated.length === 0) {
-      root.cancel()
-      return
-    }
     Qt.callLater(function() {
-      strip.positionViewAtIndex(root.selectedIndex, ListView.Contain)
+      if (root.selectedIndex >= 0)
+        strip.positionViewAtIndex(root.selectedIndex, ListView.Contain)
       if (root.commitWhenReady) root.commit()
     })
   }
@@ -231,6 +233,9 @@ Item {
       monitor: root.targetMonitorName,
       workspace: root.targetWorkspaceId,
       count: root.clients.length,
+      state: root.loading ? "loading"
+        : root.clients.length === 0 ? "empty"
+        : root.clients.length === 1 ? "single" : "multiple",
       selectedIndex: root.selectedIndex,
       selectedAddress: root.selectedIndex >= 0 && root.selectedIndex < root.clients.length
         ? String(root.clients[root.selectedIndex].address || "") : "",
@@ -319,19 +324,22 @@ Item {
         anchors.centerIn: parent
         width: Math.min(
           Math.max(Style.space(1), panel.width - root.screenMargin * 2),
-          Math.max(
-            Math.round(Style.space(300) * root.displayScale),
-            Math.min(root.clients.length, root.maxVisibleCards) * root.cardWidth
-              + Math.max(0, Math.min(root.clients.length, root.maxVisibleCards) - 1)
-                * root.cardSpacing
-              + root.panelPadding * 2))
-        height: root.cardHeight + root.panelPadding * 2
-        opacity: root.loading || root.clients.length > 0 ? 1 : 0
-        scale: root.loading || root.clients.length > 0 ? 1 : 0.94
+          root.compactState ? root.compactPanelWidth
+            : root.clients.length === 1 ? root.singlePanelWidth
+            : Math.max(
+                Math.round(Style.space(300) * root.displayScale),
+                Math.min(root.clients.length, root.maxVisibleCards) * root.cardWidth
+                  + Math.max(0, Math.min(root.clients.length, root.maxVisibleCards) - 1)
+                    * root.cardSpacing
+                  + root.panelPadding * 2))
+        height: root.compactState ? root.compactPanelHeight
+          : root.cardHeight + root.panelPadding * 2
+        opacity: root.opened ? 1 : 0
+        scale: root.opened ? 1 : 0.94
         transformOrigin: Item.Center
 
         transform: Translate {
-          y: root.loading || root.clients.length > 0 ? 0 : Style.space(14)
+          y: root.opened ? 0 : Style.space(10)
 
           Behavior on y {
             NumberAnimation {
@@ -447,11 +455,50 @@ Item {
           }
         }
 
+        Row {
+          anchors.centerIn: parent
+          spacing: Math.round(Style.space(12) * root.displayScale)
+          visible: root.emptyState
+
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: "󰍲"
+            color: root.foregroundColor
+            opacity: 0.82
+            font.family: Style.font.menuFamily
+            font.pixelSize: Math.round(Style.font.displayLarge * root.displayScale)
+          }
+
+          Column {
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: Math.round(Style.space(2) * root.displayScale)
+
+            Text {
+              text: "No windows to switch"
+              color: root.foregroundColor
+              font.family: Style.font.menuFamily
+              font.pixelSize: Math.round(Style.font.title * root.displayScale)
+              font.weight: Font.DemiBold
+            }
+
+            Text {
+              text: root.targetWorkspaceId > 0
+                ? "Workspace " + root.targetWorkspaceId : "Current workspace"
+              color: root.secondaryTextColor
+              font.family: Style.font.menuFamily
+              font.pixelSize: Math.round(Style.font.bodySmall * root.displayScale)
+            }
+          }
+        }
+
         ListView {
           id: strip
-          visible: !root.loading
+          visible: !root.loading && root.clients.length > 0
           anchors.fill: parent
           anchors.margins: root.panelPadding
+          leftMargin: root.clients.length === 1
+            ? Math.max(0, (width - root.cardWidth) / 2) : 0
+          rightMargin: leftMargin
           orientation: ListView.Horizontal
           spacing: root.cardSpacing
           clip: true
