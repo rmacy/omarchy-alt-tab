@@ -40,6 +40,8 @@ Item {
       'hl.unbind("ALT + SHIFT + TAB")',
       'hl.unbind("ALT + ALT_L")',
       'hl.unbind("ALT + ALT_R")',
+      'hl.unbind("ALT_L")',
+      'hl.unbind("ALT_R")',
       'hl.define_submap(submap, function()',
       '  hl.bind("ALT + TAB", function() shell_call("advance", "1") end,',
       '    { description = "Window switcher: next" })',
@@ -54,10 +56,10 @@ Item {
       '  { description = "Window switcher" })',
       'hl.bind("ALT + SHIFT + TAB", function() begin(-1) end,',
       '  { description = "Window switcher (reverse)" })',
-      'hl.bind("ALT + ALT_L", function() reset_and_call("commit") end,',
-      '  { release = true, non_consuming = true, submap_universal = true })',
-      'hl.bind("ALT + ALT_R", function() reset_and_call("commit") end,',
-      '  { release = true, non_consuming = true, submap_universal = true })'
+      'hl.bind("ALT_L", function() reset_and_call("commit") end,',
+      '  { release = true, non_consuming = true, submap_universal = true, ignore_mods = true })',
+      'hl.bind("ALT_R", function() reset_and_call("commit") end,',
+      '  { release = true, non_consuming = true, submap_universal = true, ignore_mods = true })'
     ].join("\n")
   }
 
@@ -72,6 +74,8 @@ Item {
       '  hl.unbind("ALT + SHIFT + TAB")',
       '  hl.unbind("ALT + ALT_L")',
       '  hl.unbind("ALT + ALT_R")',
+      '  hl.unbind("ALT_L")',
+      '  hl.unbind("ALT_R")',
       'end'
     ].join("\n")
   }
