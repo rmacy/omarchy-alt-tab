@@ -71,7 +71,9 @@ Item {
   readonly property bool compactState: root.loading || root.emptyState
   readonly property int compactPanelWidth: Math.round(Style.space(270) * displayScale)
   readonly property int compactPanelHeight: Math.round(Style.space(84) * displayScale)
-  readonly property int singlePanelWidth: cardWidth + panelPadding * 2
+  readonly property int singlePanelWidth: Math.round(Style.space(320) * displayScale)
+  readonly property int singlePanelHeight: Math.round(Style.space(112) * displayScale)
+  readonly property int singleIconSize: Math.round(Style.space(64) * displayScale)
 
   function monitorScreen(name) {
     var screens = Quickshell.screens || []
@@ -84,7 +86,8 @@ Item {
   function desktopEntry(client) {
     if (!root.appLibrary) return null
     var entries = root.appLibrary.sortedEntries("") || []
-    var keys = [String(client.initialClass || ""), String(client.class || "")]
+    var keys = [String(client.initialClass || ""), String(client.class || ""),
+      String(client.title || "")]
     var best = null
     var bestScore = 100
 
@@ -333,6 +336,7 @@ Item {
                     * root.cardSpacing
                   + root.panelPadding * 2))
         height: root.compactState ? root.compactPanelHeight
+          : root.clients.length === 1 ? root.singlePanelHeight
           : root.cardHeight + root.panelPadding * 2
         opacity: root.opened ? 1 : 0
         scale: root.opened ? 1 : 0.94
@@ -491,14 +495,104 @@ Item {
           }
         }
 
-        ListView {
-          id: strip
-          visible: !root.loading && root.clients.length > 0
+        Rectangle {
+          id: singleWindowCard
+          visible: !root.loading && root.clients.length === 1
           anchors.fill: parent
           anchors.margins: root.panelPadding
-          leftMargin: root.clients.length === 1
-            ? Math.max(0, (width - root.cardWidth) / 2) : 0
-          rightMargin: leftMargin
+          radius: root.cardRadius
+          color: root.selectedColor
+          border.color: root.selectedBorderColor
+          border.width: Math.max(Style.spacing.hairline, Style.selectedBorderWidth)
+
+          Row {
+            id: singleWindowContent
+            anchors.fill: parent
+            anchors.margins: root.cardPadding
+            spacing: Math.round(Style.space(14) * root.displayScale)
+
+            Item {
+              width: root.singleIconSize
+              height: parent.height
+
+              Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: Math.round(Style.space(8) * root.displayScale)
+                width: Math.round(root.singleIconSize * 0.7)
+                height: Math.round(Style.space(10) * root.displayScale)
+                radius: height / 2
+                color: root.iconShadowColor
+                opacity: 0.55
+              }
+
+              Image {
+                id: singleAppIcon
+                anchors.centerIn: parent
+                width: root.singleIconSize
+                height: width
+                source: root.clients.length === 1
+                  ? String(root.clients[0].iconSource || "") : ""
+                fillMode: Image.PreserveAspectFit
+                sourceSize.width: Math.round(width * Screen.devicePixelRatio)
+                sourceSize.height: Math.round(height * Screen.devicePixelRatio)
+                asynchronous: true
+                smooth: true
+              }
+
+              Text {
+                anchors.centerIn: parent
+                visible: singleAppIcon.status !== Image.Ready
+                text: "󰍲"
+                color: root.selectedTextColor
+                font.family: Style.font.menuFamily
+                font.pixelSize: Math.round(root.singleIconSize * 0.54)
+              }
+            }
+
+            Column {
+              width: singleWindowContent.width - root.singleIconSize
+                - singleWindowContent.spacing
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: Math.round(Style.space(3) * root.displayScale)
+
+              Text {
+                width: parent.width
+                text: root.clients.length === 1
+                  ? String(root.clients[0].appName || "Application") : ""
+                color: root.selectedTextColor
+                elide: Text.ElideRight
+                maximumLineCount: 1
+                font.family: Style.font.menuFamily
+                font.pixelSize: Math.round(Style.font.title * root.displayScale)
+                font.weight: Font.DemiBold
+              }
+
+              Text {
+                width: parent.width
+                text: root.clients.length === 1
+                  ? String(root.clients[0].displayTitle || "") : ""
+                color: root.selectedSecondaryTextColor
+                elide: Text.ElideRight
+                maximumLineCount: 1
+                font.family: Style.font.menuFamily
+                font.pixelSize: Math.round(Style.font.bodySmall * root.displayScale)
+              }
+            }
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.commit()
+          }
+        }
+
+        ListView {
+          id: strip
+          visible: !root.loading && root.clients.length > 1
+          anchors.fill: parent
+          anchors.margins: root.panelPadding
           orientation: ListView.Horizontal
           spacing: root.cardSpacing
           clip: true
