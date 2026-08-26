@@ -199,9 +199,15 @@ Item {
       count: root.clients.length,
       selectedIndex: root.selectedIndex,
       selectedAddress: root.selectedIndex >= 0 && root.selectedIndex < root.clients.length
-        ? String(root.clients[root.selectedIndex].address || "") : ""
+        ? String(root.clients[root.selectedIndex].address || "") : "",
+      panelWidth: panel.width,
+      panelHeight: panel.height,
+      stripWidth: strip.width,
+      stripHeight: strip.height,
+      cardPanelWidth: switcherPanel.width,
+      cardPanelHeight: switcherPanel.height,
+      cardPanelOpacity: switcherPanel.opacity
     })
-  }
 
   Process {
     id: clientsProcess
