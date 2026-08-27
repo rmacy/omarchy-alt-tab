@@ -1,25 +1,24 @@
 # Omarchy Alt-Tab
 
-A themed, translucent macOS-style window switcher for Omarchy. It cycles only through switchable windows on the active workspace of the focused monitor, ordered by Hyprland focus history.
+> [!IMPORTANT]
+> This standalone plugin is archived. Its complete audited implementation was merged into [Omarchy Mission Control 3.0.0](https://github.com/rmacy/omarchy-mission-control/releases/tag/v3.0.0), which now owns Alt-Tab alongside the workspace overview and spaces widget. Running both plugins creates binding conflicts.
+
+Migrate with:
+
+```bash
+omarchy plugin remove bitr0t.window-switcher --yes
+omarchy plugin add https://github.com/rmacy/omarchy-mission-control.git --enable
+```
+
+Existing Mission Control users only need:
+
+```bash
+omarchy plugin update bitr0t.mission-control
+```
+
+The remainder of this README documents the historical standalone v1.4.1 release.
 
 ![Window switcher preview](preview.png)
-
-## Install
-
-```bash
-omarchy plugin add https://github.com/rmacy/omarchy-alt-tab --enable
-```
-
-Manage the installed plugin with Omarchy:
-
-```bash
-omarchy plugin update bitr0t.window-switcher
-omarchy plugin disable bitr0t.window-switcher
-omarchy plugin enable bitr0t.window-switcher
-omarchy plugin remove bitr0t.window-switcher
-```
-
-Disabling or removing the plugin reloads Hyprland so the configured Alt-Tab bindings are restored.
 
 ## Controls
 
